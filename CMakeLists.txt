@@ -131,26 +131,36 @@ endif()
 if(ENABLE_DTLS)
 
   if(DTLS_BACKEND
-     STREQUAL
-     "openssl")
-    set(WITH_OPENSSL ON)
-  endif()
-
-  if(DTLS_BACKEND
-     STREQUAL
-     "gnutls")
-    set(WITH_GNUTLS ON)
-  endif()
-
-  if(DTLS_BACKEND
-     STREQUAL
-     "mbedtls")
-    set(WITH_MBEDTLS ON)
-  endif()
-
-  if(DTLS_BACKEND
+     NOT
      STREQUAL
      "")
+    message(STATUS "DTLS_BACKEND: ${DTLS_BACKEND}")
+    # DTLS_BACKEND is not empty so set all to false and set the only right to true
+    set(WITH_GNUTLS OFF)
+    set(WITH_TINYDTLS OFF)
+    set(WITH_MBEDTLS OFF)
+    set(WITH_OPENSSL OFF)
+
+    if(DTLS_BACKEND
+       STREQUAL
+       "openssl")
+      set(WITH_OPENSSL ON)
+    endif()
+
+    if(DTLS_BACKEND
+       STREQUAL
+       "gnutls")
+      set(WITH_GNUTLS ON)
+    endif()
+
+    if(DTLS_BACKEND
+       STREQUAL
+       "mbedtls")
+      set(WITH_MBEDTLS ON)
+    endif()
+
+  else()
+
     if(WITH_GNUTLS
        OR WITH_TINYDTLS
        OR WITH_MBEDTLS)
@@ -182,35 +192,35 @@ if(ENABLE_DTLS)
       endif()
     endforeach()
 
-    if(WITH_OPENSSL)
-      set(WITH_OPENSSL "${WITH_OPENSSL}")
-      message(STATUS "compiling with openssl support")
-      find_package(OpenSSL REQUIRED)
-      set(HAVE_OPENSSL 1)
-    endif()
-
-    if(WITH_GNUTLS)
-      set(WITH_GNUTLS "${WITH_GNUTLS}")
-      message(STATUS "compiling with gnutls support")
-      # required libgnutls (e.g. debian libgnutls28-dev)
-      find_package(GnuTLS REQUIRED)
-      set(HAVE_LIBGNUTLS 1)
-    endif()
-
-    if(WITH_TINYDTLS)
-      set(WITH_TINYDTLS "${WITH_TINYDTLS}")
-      message(STATUS "compiling with tinydtls support")
-      set(HAVE_LIBTINYDTLS 1)
-    endif()
-
-    if(WITH_MBEDTLS)
-      set(WITH_MBEDTLS "${WITH_MBEDTLS}")
-      message(STATUS "compiling with mbedtls support")
-      # required libmbedtls (e.g. debian libmbedtls-dev)
-      set(HAVE_MBEDTLS 1)
-    endif()
   endif()
 
+  if(WITH_OPENSSL)
+    set(WITH_OPENSSL "${WITH_OPENSSL}")
+    message(STATUS "compiling with openssl support")
+    find_package(OpenSSL REQUIRED)
+    set(HAVE_OPENSSL 1)
+  endif()
+
+  if(WITH_GNUTLS)
+    set(WITH_GNUTLS "${WITH_GNUTLS}")
+    message(STATUS "compiling with gnutls support")
+    # required libgnutls (e.g. debian libgnutls28-dev)
+    find_package(GnuTLS REQUIRED)
+    set(HAVE_LIBGNUTLS 1)
+  endif()
+
+  if(WITH_TINYDTLS)
+    set(WITH_TINYDTLS "${WITH_TINYDTLS}")
+    message(STATUS "compiling with tinydtls support")
+    set(HAVE_LIBTINYDTLS 1)
+  endif()
+
+  if(WITH_MBEDTLS)
+    set(WITH_MBEDTLS "${WITH_MBEDTLS}")
+    message(STATUS "compiling with mbedtls support")
+    # required libmbedtls (e.g. debian libmbedtls-dev)
+    set(HAVE_MBEDTLS 1)
+  endif()
 endif()
 
 message(STATUS "ENABLE_DTLS: ${ENABLE_DTLS}")
