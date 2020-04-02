@@ -12,6 +12,10 @@ set(LIBCOAP_API_VERSION 2)
 #
 
 option(
+  DTLS_BACKEND
+  ""
+  "")
+option(
   ENABLE_DTLS
   "Enable building with DTLS support"
   ON)
@@ -125,63 +129,86 @@ else()
 endif()
 
 if(ENABLE_DTLS)
-  if(WITH_GNUTLS
-     OR WITH_TINYDTLS
-     OR WITH_MBEDTLS)
-    set(WITH_OPENSSL OFF)
+
+  if(DTLS_BACKEND
+     STREQUAL
+     "openssl")
+    set(WITH_OPENSSL ON)
   endif()
 
-  # loop over the possible cryto backends to make sure we only use one
-  foreach(
-    LIB1
-    WITH_GNUTLS
-    WITH_TINYDTLS
-    WITH_MBEDTLS)
-    if(${${LIB1}})
-      message(STATUS "LIB1: ${LIB1} is ON")
-      foreach(
-        LIB2
-        WITH_GNUTLS
-        WITH_TINYDTLS
-        WITH_MBEDTLS)
-        # if name of both libs is different and second is also on, fail fast
-        if(NOT
-           "${LIB1}"
-           STREQUAL
-           "${LIB2}"
-           AND ${${LIB2}})
-          message(FATAL_ERROR "cannot build with ${LIB1} and ${LIB2}")
-        endif()
-      endforeach()
+  if(DTLS_BACKEND
+     STREQUAL
+     "gnutls")
+    set(WITH_GNUTLS ON)
+  endif()
+
+  if(DTLS_BACKEND
+     STREQUAL
+     "mbedtls")
+    set(WITH_MBEDTLS ON)
+  endif()
+
+  if(DTLS_BACKEND
+     STREQUAL
+     "")
+    if(WITH_GNUTLS
+       OR WITH_TINYDTLS
+       OR WITH_MBEDTLS)
+      set(WITH_OPENSSL OFF)
     endif()
-  endforeach()
 
-  if(WITH_OPENSSL)
-    set(WITH_OPENSSL "${WITH_OPENSSL}")
-    message(STATUS "compiling with openssl support")
-    find_package(OpenSSL REQUIRED)
-    set(HAVE_OPENSSL 1)
-  endif()
+    # loop over the possible cryto backends to make sure we only use one
+    foreach(
+      LIB1
+      WITH_GNUTLS
+      WITH_TINYDTLS
+      WITH_MBEDTLS)
+      if(${${LIB1}})
+        message(STATUS "LIB1: ${LIB1} is ON")
+        foreach(
+          LIB2
+          WITH_GNUTLS
+          WITH_TINYDTLS
+          WITH_MBEDTLS)
+          # if name of both libs is different and second is also on, fail fast
+          if(NOT
+             "${LIB1}"
+             STREQUAL
+             "${LIB2}"
+             AND ${${LIB2}})
+            message(FATAL_ERROR "cannot build with ${LIB1} and ${LIB2}")
+          endif()
+        endforeach()
+      endif()
+    endforeach()
 
-  if(WITH_GNUTLS)
-    set(WITH_GNUTLS "${WITH_GNUTLS}")
-    message(STATUS "compiling with gnutls support")
-    # required libgnutls (e.g. debian libgnutls28-dev)
-    find_package(GnuTLS REQUIRED)
-    set(HAVE_LIBGNUTLS 1)
-  endif()
+    if(WITH_OPENSSL)
+      set(WITH_OPENSSL "${WITH_OPENSSL}")
+      message(STATUS "compiling with openssl support")
+      find_package(OpenSSL REQUIRED)
+      set(HAVE_OPENSSL 1)
+    endif()
 
-  if(WITH_TINYDTLS)
-    set(WITH_TINYDTLS "${WITH_TINYDTLS}")
-    message(STATUS "compiling with tinydtls support")
-    set(HAVE_LIBTINYDTLS 1)
-  endif()
+    if(WITH_GNUTLS)
+      set(WITH_GNUTLS "${WITH_GNUTLS}")
+      message(STATUS "compiling with gnutls support")
+      # required libgnutls (e.g. debian libgnutls28-dev)
+      find_package(GnuTLS REQUIRED)
+      set(HAVE_LIBGNUTLS 1)
+    endif()
 
-  if(WITH_MBEDTLS)
-    set(WITH_MBEDTLS "${WITH_MBEDTLS}")
-    message(STATUS "compiling with mbedtls support")
-    # required libmbedtls (e.g. debian libmbedtls-dev)
-    set(HAVE_MBEDTLS 1)
+    if(WITH_TINYDTLS)
+      set(WITH_TINYDTLS "${WITH_TINYDTLS}")
+      message(STATUS "compiling with tinydtls support")
+      set(HAVE_LIBTINYDTLS 1)
+    endif()
+
+    if(WITH_MBEDTLS)
+      set(WITH_MBEDTLS "${WITH_MBEDTLS}")
+      message(STATUS "compiling with mbedtls support")
+      # required libmbedtls (e.g. debian libmbedtls-dev)
+      set(HAVE_MBEDTLS 1)
+    endif()
   endif()
 
 endif()
