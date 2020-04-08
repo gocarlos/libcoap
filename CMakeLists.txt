@@ -19,26 +19,30 @@ option(
   ENABLE_DTLS
   "Enable building with DTLS support"
   ON)
-option(
-  WITH_OPENSSL
-  "Use OpenSSL for DTLS functions"
-  ON)
-option(
-  WITH_GNUTLS
-  "Use GnuTLS for DTLS functions"
-  OFF)
-option(
-  WITH_TINYDTLS
-  "Use TinyDTLS for DTLS functions"
-  OFF)
-option(
-  WITH_MBEDTLS
-  "Use MbedTLS for DTLS functions"
-  OFF)
+set(DTLS_BACKEND
+    "default"
+    CACHE
+      STRING
+      " \
+    Name of the dtls backend, only relevant if `ENABLE_DTLS` is ON which is default. \
+    Possible values: default, gnutls, openssl, tinydtls and mbedtls. \
+    If specified then this library will be searched and if found also used. \
+    If not found then the cmake configuration will stop with an error.
+    If not specified, then cmake will try to use the first one found in the following order: \
+    gnutls, openssl, tinydtls, mbedtls \
+    ")
+set_property(
+  CACHE DTLS_BACKEND
+  PROPERTY STRINGS
+           default
+           openssl
+           gnutls
+           tinydtls
+           mbedtls)
 option(
   WITH_EPOLL
   "compile with epoll support"
-  OFF)
+  ON)
 option(
   ENABLE_SMALL_STACK
   "Define if the system has small stack size"
@@ -62,6 +66,10 @@ option(
 
 if(NOT CMAKE_C_STANDARD)
   set(CMAKE_C_STANDARD 11)
+endif()
+
+if(NOT CMAKE_BUILD_TYPE)
+  set(CMAKE_BUILD_TYPE Debug)
 endif()
 
 if(MSVC)
@@ -132,14 +140,75 @@ else()
     HAVE_STRUCT_CMSGHDR)
 endif()
 
-if(ENABLE_DTLS)
+if(${WITH_EPOLL}
+   AND ${HAVE_EPOLL_H}
+   AND ${HAVE_TIMERFD_H})
+  set(COAP_EPOLL_SUPPORT "1")
+  message(STATUS "compiling with epoll support")
+else()
+  message(STATUS "compiling without epoll support")
+endif()
 
-  if(NOT
-     DTLS_BACKEND
+if(ENABLE_SMALL_STACK)
+  set(ENABLE_SMALL_STACK "${ENABLE_SMALL_STACK}")
+  message(STATUS "compiling with small stack support")
+endif()
+
+set(WITH_GNUTLS OFF)
+set(WITH_OPENSSL OFF)
+set(WITH_TINYDTLS OFF)
+set(WITH_MBEDTLS OFF)
+
+if(ENABLE_DTLS)
+  message(STATUS "compiling with DTLS support")
+  message(STATUS "DTLS_BACKEND: ${DTLS_BACKEND}")
+
+  if(DTLS_BACKEND
      STREQUAL
-     "")
-    message(STATUS "DTLS_BACKEND: ${DTLS_BACKEND}")
-    # DTLS_BACKEND is not empty so set all to false and set the only right to true
+     "default")
+    # try to find a crypto lib and use it, use the first one found
+
+    # libgnutls (e.g. debian libgnutls28-dev)
+    find_package(GnuTLS)
+    if(GnuTLS_FOUND)
+      set(WITH_GNUTLS ON)
+      message(STATUS "compiling with gnutls support")
+      set(HAVE_LIBGNUTLS 1)
+    else()
+      # gnutls not found
+      find_package(OpenSSL)
+      if(OpenSSL_FOUND)
+        set(WITH_OPENSSL ON)
+        message(STATUS "compiling with openssl support")
+        set(HAVE_OPENSSL 1)
+      else()
+        # openssl not found
+        # libmbedtls (e.g. debian libmbedtls-dev)
+        find_package(MbedTLS)
+        if(MbedTLS_FOUND)
+          set(WITH_MBEDTLS ON)
+          message(STATUS "compiling with mbedtls support")
+          set(HAVE_MBEDTLS 1)
+        else()
+          # mbedtls not found
+          find_package(TinyDTLS)
+          if(TINYDTLS_FOUND)
+            set(WITH_TINYDTLS ON)
+            message(STATUS "compiling with tinydtls support")
+            set(HAVE_LIBTINYDTLS 1)
+          else()
+            # no cryto lib found
+            message(FATAL_ERROR "cannot found any cryto lib, either install one or compile without DTLS support")
+          endif()
+
+        endif()
+
+      endif()
+
+    endif()
+
+  else()
+    # DTLS_BACKEND variable is not empty, so set all to false and set the only right to true
     set(WITH_GNUTLS OFF)
     set(WITH_TINYDTLS OFF)
     set(WITH_MBEDTLS OFF)
@@ -147,77 +216,43 @@ if(ENABLE_DTLS)
 
     if(DTLS_BACKEND
        STREQUAL
-       "openssl")
-      set(WITH_OPENSSL ON)
+       "gnutls")
+      # libgnutls (e.g. debian libgnutls28-dev)
+      find_package(GnuTLS REQUIRED)
+      set(WITH_GNUTLS ON)
+      message(STATUS "compiling with gnutls support")
+      set(HAVE_LIBGNUTLS 1)
     endif()
 
     if(DTLS_BACKEND
        STREQUAL
-       "gnutls")
-      set(WITH_GNUTLS ON)
+       "openssl")
+      # libssl (e.g. debian libssl1.0-dev)
+      find_package(OpenSSL REQUIRED)
+      set(WITH_OPENSSL ON)
+      message(STATUS "compiling with openssl support")
+      set(HAVE_OPENSSL 1)
     endif()
 
     if(DTLS_BACKEND
        STREQUAL
        "mbedtls")
+      # libmbedtls (e.g. debian libmbedtls-dev)
+      find_package(MbedTLS REQUIRED)
       set(WITH_MBEDTLS ON)
+      message(STATUS "compiling with mbedtls support")
+      set(HAVE_MBEDTLS 1)
     endif()
 
-  else()
+    if(DTLS_BACKEND
+       STREQUAL
+       "tinydtls")
+      find_package(TinyDTLS REQUIRED)
+      message(STATUS "compiling with tinydtls support")
+      set(WITH_TINYDTLS ON)
+      set(HAVE_LIBTINYDTLS 1)
 
-    if(WITH_GNUTLS
-       OR WITH_TINYDTLS
-       OR WITH_MBEDTLS)
-      set(WITH_OPENSSL OFF)
     endif()
-
-    # loop over the possible cryto backends to make sure we only use one
-    foreach(
-      LIB1
-      WITH_GNUTLS
-      WITH_TINYDTLS
-      WITH_MBEDTLS)
-      if(${${LIB1}})
-        message(STATUS "LIB1: ${LIB1} is ON")
-        foreach(
-          LIB2
-          WITH_GNUTLS
-          WITH_TINYDTLS
-          WITH_MBEDTLS)
-          # if name of both libs is different and second is also on, fail fast
-          if(NOT
-             "${LIB1}"
-             STREQUAL
-             "${LIB2}"
-             AND ${${LIB2}})
-            message(FATAL_ERROR "cannot build with ${LIB1} and ${LIB2}")
-          endif()
-        endforeach()
-      endif()
-    endforeach()
-
-  endif()
-
-  if(WITH_OPENSSL)
-    set(WITH_OPENSSL "${WITH_OPENSSL}")
-    message(STATUS "compiling with openssl support")
-    find_package(OpenSSL REQUIRED)
-    set(HAVE_OPENSSL 1)
-  endif()
-
-  if(WITH_GNUTLS)
-    set(WITH_GNUTLS "${WITH_GNUTLS}")
-    message(STATUS "compiling with gnutls support")
-    # required libgnutls (e.g. debian libgnutls28-dev)
-    find_package(GnuTLS REQUIRED)
-    set(HAVE_LIBGNUTLS 1)
-  endif()
-
-  if(WITH_TINYDTLS)
-    set(WITH_TINYDTLS "${WITH_TINYDTLS}")
-    message(STATUS "compiling with tinydtls support")
-    set(HAVE_LIBTINYDTLS 1)
-  endif()
 
   if(WITH_MBEDTLS)
     set(WITH_MBEDTLS "${WITH_MBEDTLS}")
@@ -233,22 +268,13 @@ message(STATUS "ENABLE_TCP: ${ENABLE_TCP}")
 message(STATUS "WITH_TINYDTLS: ${WITH_TINYDTLS}")
 message(STATUS "WITH_GNUTLS: ${WITH_GNUTLS}")
 message(STATUS "WITH_OPENSSL: ${WITH_OPENSSL}")
+message(STATUS "WITH_MBEDTLS: ${WITH_MBEDTLS}")
 message(STATUS "HAVE_LIBTINYDTLS: ${HAVE_LIBTINYDTLS}")
 message(STATUS "HAVE_LIBGNUTLS: ${HAVE_LIBGNUTLS}")
 message(STATUS "HAVE_OPENSSL: ${HAVE_OPENSSL}")
 message(STATUS "HAVE_MBEDTLS: ${HAVE_MBEDTLS}")
-
-if(${WITH_EPOLL}
-   AND ${HAVE_EPOLL_H}
-   AND ${HAVE_TIMERFD_H})
-  set(COAP_EPOLL_SUPPORT "1")
-  message(STATUS "compiling with epoll support")
-endif()
-
-if(ENABLE_SMALL_STACK)
-  set(ENABLE_SMALL_STACK "${ENABLE_SMALL_STACK}")
-  message(STATUS "compiling with small stack support")
-endif()
+message(STATUS "COAP_EPOLL_SUPPORT: ${COAP_EPOLL_SUPPORT}")
+message(STATUS "CMAKE_BUILD_TYPE: ${CMAKE_BUILD_TYPE}")
 
 set(PACKAGE_URL "https://libcoap.net/")
 set(PACKAGE_NAME "${PROJECT_NAME}")
@@ -349,7 +375,7 @@ target_link_libraries(
   PUBLIC $<$<BOOL:${HAVE_OPENSSL}>:OpenSSL::SSL>
          $<$<BOOL:${HAVE_OPENSSL}>:OpenSSL::Crypto>
          $<$<BOOL:${HAVE_LIBGNUTLS}>:${GNUTLS_LIBRARIES}>
-         $<$<BOOL:${HAVE_LIBTINYDTLS}>:-ltinydtls>
+         $<$<BOOL:${HAVE_LIBTINYDTLS}>:tinydtls>
          $<$<BOOL:${HAVE_MBEDTLS}>:${MBEDTLS_LIBRARY}>
          $<$<BOOL:${HAVE_MBEDTLS}>:${MBEDX509_LIBRARY}>
          $<$<BOOL:${HAVE_MBEDTLS}>:${MBEDCRYPTO_LIBRARY}>)
