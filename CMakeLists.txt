@@ -208,16 +208,23 @@ function(compile_tinydtls)
     COMMAND "make install"
     DEPENDS external_tinydtls)
 
+  add_dependencies(${COAP_LIBRARY_NAME} external_tinydtls)
+
+  if(BUILD_SHARED_LIBS)
+    set(LIBTINYDTLS_PATH "${CMAKE_CURRENT_BINARY_DIR}/lib/libtinydtls.so")
+  else()
+    set(LIBTINYDTLS_PATH "${CMAKE_CURRENT_BINARY_DIR}/lib/libtinydtls.a")
+  endif()
+
   add_library(
     tinydtls
     UNKNOWN
     IMPORTED)
   set_target_properties(
     tinydtls
-    PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "${CMAKE_CURRENT_BINARY_DIR}/include/"
-               IMPORTED_LINK_INTERFACE_LANGUAGES "C"
-               IMPORTED_LOCATION "${CMAKE_CURRENT_BINARY_DIR}/lib/libtinydtls.a")
-  add_dependencies(${COAP_LIBRARY_NAME} external_tinydtls)
+    PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "${CMAKE_CURRENT_BINARY_DIR}/include"
+               MPORTED_LINK_INTERFACE_LANGUAGES "C"
+               IMPORTED_LOCATION "${LIBTINYDTLS_PATH}")
 
 endfunction()
 
@@ -265,6 +272,7 @@ if(ENABLE_DTLS)
             endif()
 
           endif()
+
           set(WITH_TINYDTLS ON)
           message(STATUS "compiling with tinydtls support")
           set(HAVE_LIBTINYDTLS 1)
@@ -434,14 +442,10 @@ target_include_directories(
          $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/include/>
          $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/include/coap2>
          $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/include/coap2>
-         $<$<BOOL:${USE_VENDORED_TINYDTLS}>:${CMAKE_BINARY_DIR}/include/tinydtls>
          $<INSTALL_INTERFACE:include/>
+         $<$<BOOL:${USE_VENDORED_TINYDTLS}>:${CMAKE_BINARY_DIR}/include/tinydtls>
          $<$<BOOL:${HAVE_LIBGNUTLS}>:${GNUTLS_INCLUDE_DIR}>
          $<$<BOOL:${HAVE_LIBGNUTLS}>:${MBEDTLS_INCLUDE_DIRS}>)
-# target_link_directories(
-#   ${COAP_LIBRARY_NAME}
-#   PRIVATE
-#   $<$<BOOL:${USE_VENDORED_TINYDTLS}>:${CMAKE_BINARY_DIR}/lib/>)
 target_link_libraries(
   ${COAP_LIBRARY_NAME}
   PUBLIC $<$<BOOL:${HAVE_OPENSSL}>:OpenSSL::SSL>
