@@ -52,11 +52,9 @@ find_library(
 
 if(TINYDTLS_LIBRARIES)
   set(TINYDTLS_FOUND TRUE)
-  message(FATAL_ERROR "Tinydtls could be found")
 else()
   set(TINYDTLS_FOUND FALSE)
-  # TODO fix me
-  if(TinyDTLS_REQUIRED)
+  if(TinyDTLS_FIND_REQUIRED)
     message(FATAL_ERROR "Tinydtls could not be found")
   endif()
 endif()
