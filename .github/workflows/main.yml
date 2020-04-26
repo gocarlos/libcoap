@@ -12,10 +12,14 @@ jobs:
         BUILD_SHARED_LIBS: ["ON", "OFF"]
         ENABLE_DTLS: ["ON", "OFF"]
         ENABLE_TCP: ["ON", "OFF"]
+        ENABLE_EXAMPLES: ["ON", "OFF"]
+        ENABLE_TESTS: ["ON", "OFF"]
         DTLS_BACKEND: ["openssl", "gnutls", "mbedtls", "tinydtls"]
         include:
           - os: windows-latest
             DTLS_BACKEND: "openssl"
+            ENABLE_EXAMPLES: "OFF"
+            ENABLE_TESTS: "OFF"
           # - os: macos-latest
           #   DTLS_BACKEND: "openssl"
 
@@ -49,8 +53,8 @@ jobs:
         working-directory: ${{runner.workspace}}/build
         run: |
           cmake $GITHUB_WORKSPACE \
-          -DENABLE_EXAMPLES=ON \
-          -DENABLE_TESTS=ON \
+          -DENABLE_EXAMPLES=${{matrix.ENABLE_EXAMPLES}} \
+          -DENABLE_TESTS=${{matrix.ENABLE_TESTS}} \
           -DBUILD_SHARED_LIBS=${{matrix.BUILD_SHARED_LIBS}} \
           -DENABLE_DTLS=${{matrix.ENABLE_DTLS}} \
           -DENABLE_TCP=${{matrix.ENABLE_TCP}} \
